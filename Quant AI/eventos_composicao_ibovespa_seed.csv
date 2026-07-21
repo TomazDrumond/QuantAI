@@ -1,0 +1,7 @@
+data_inicio_vigencia,data_fim_vigencia,tickers_entrada,tickers_saida,n_ativos,n_empresas,fonte_url
+2021-09-06,2021-12-30,"ALPA4;BIDI11;BPAN4;CASH3;RDOR3;DXCO3;PETZ3",,91,84,https://maisretorno.com/portal/nova-previa-do-ibovespa-tem-a-entrada-de-novos-ativos-da-alpargatas-inter-banco-pan-meliuz-rede-dor-dexco-e-petz
+2022-01-03,2022-04-29,"POSI3;CMIN3;RRRP3",,93,90,https://maisretorno.com/portal/confira-nova-composicao-do-ibovespa-csn-mineracao-positivo-e-3r-petroleum-entraram-veja-quem-saiu
+2022-05-02,2022-09-02,"SLCE3",,92,89,https://maisretorno.com/portal/slc-agricola-foi-incluida-na-nova-carteira-do-ibovespa-que-vai-vigorar-ate-2-de-setembro
+2023-01-02,2023-04-28,,"POSI3",91,,https://maisretorno.com/portal/b3-exclui-positivo-da-1a-previa-do-ibovespa-para-o-periodo-de-janeiro-a-abril-23
+2024-01-02,2024-05-03,"TRPL4",,87,84,https://www.suno.com.br/noticias/carteira-do-ibovespa-entra-vigor-hoje-com-87-papeis-84-empresas-brasileiras-va/
+2025-01-06,2025-05-02,"POMO4;PSSA3","ALPA4;EZTC3",87,84,https://investidor10.com.br/amp/noticias/nova-carteira-do-ibovespa-entra-em-vigor-confira-110120/
