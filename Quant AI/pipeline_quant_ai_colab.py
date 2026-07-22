@@ -127,7 +127,7 @@ def rodar_pipeline_sintetico(seed: int = 0) -> None:
     A = rng.normal(0, 0.02, (n, n))
     Sigma = A @ A.T + np.eye(n) * 0.01
     Pi = rng.normal(0.08, 0.01, n)
-    tau, delta = 0.05, 3.0
+    tau, delta = 2.5, 3.0
 
     # Simula sentimento -> Q/Omega via Agentes 3/4/5 (dados fake)
     Q_por_ativo = {"PETR4": 0.15, "VALE3": -0.05, "ITUB4": 0.08}
