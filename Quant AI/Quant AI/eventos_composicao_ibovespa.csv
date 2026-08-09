@@ -1,0 +1,26 @@
+data_inicio_vigencia,data_fim_vigencia,tickers_entrada,tickers_saida,n_ativos,fonte_url
+2018-05-03,2018-08-31,B3SA3;BTOW3;CVCB3;GOLL4,BVMF3,67,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2018-08-31,2019-01-04,,CPFE3;SAPR11,65,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2019-01-04,2019-04-30,BRDT3;LOGG3;VVAR3,CPLE6;FIBR3;VVAR11,65,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2019-04-30,2019-05-03,AZUL4;IRBR3,LOGG3,66,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2019-05-03,2019-08-30,,,66,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2019-08-30,2020-01-03,BPAC11;GNDI3;YDUQ3,ESTC3,68,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2020-01-03,2020-04-28,COGN3;CRFB3;HAPV3;HGTX3;NTCO3;SULA11;TOTS3,KROT3;NATU3,73,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2020-04-28,2020-09-04,BEEF3;CPFE3;ENGI11;PCAR3,PCAR4;SMLS3,75,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2020-09-04,2020-12-30,EZTC3;PRIO3,,77,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2020-12-30,2021-04-28,CPLE6;ENEV3;JHSF3;LCAM3;TIMS3;VIVT3,TIMP3;VIVT4,81,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2021-04-28,2021-09-03,ASAI3;BIDI11;LWSA3,,84,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2021-09-03,2021-12-30,ALPA4;AMER3;BIDI4;BPAN4;CASH3;DXCO3;PETZ3;RDOR3;VIIA3,BTOW3;VVAR3,91,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2021-12-30,2022-04-29,CMIN3;IGTI11;POSI3;RRRP3;SOMA3;VBBR3,BIDI4;BRDT3;HGTX3;IGTA3,93,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2022-04-29,2022-09-02,SLCE3,GNDI3;LAME4,92,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2022-09-02,2022-12-29,ARZZ3;RAIZ4;SMTO3,BIDI11;JHSF3;LCAM3,92,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2022-12-29,2023-04-26,,IRBR3;POSI3;SULA11,89,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2023-04-26,2023-09-01,ALSO3;IRBR3,AMER3;BPAN4;BRML3;ECOR3;QUAL3,86,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2023-09-01,2023-12-28,RECV3;VAMO3,CASH3;ENBR3,86,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2023-12-28,2024-04-30,ALOS3;BHIA3;TRPL4,ALSO3;VIIA3,87,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2024-04-30,2024-08-30,VIVA3,BHIA3;GOLL4,86,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2024-08-30,2025-01-03,AURE3;AZZA3;CXSE3;STBP3,ARZZ3;CIEL3;DXCO3;SOMA3,86,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2025-01-03,2025-05-02,AMOB3;BRAV3;ISAE4;POMO4;PSSA3,ALPA4;EZTC3;RRRP3;TRPL4,87,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2025-05-02,2025-08-29,DIRR3;MOTV3;SMFT3,AMOB3;CCRO3;LWSA3,87,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2025-08-29,2026-01-02,CEAB3;CURY3;NATU3,AZUL4;CRFB3;JBSS3;NTCO3;PETZ3;SMTO3,84,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
+2026-01-02,,AXIA3;AXIA6;AXIA7;CPLE3;CSMG3;CYRE4;EMBJ3;MBRF3;RENT4,BRFS3;CPLE6;CVCB3;ELET3;ELET6;EMBR3;MRFG3;STBP3,85,arquivo oficial B3 (ViradaFinal) -- ver arquivo_fonte em composicao_pit.csv
