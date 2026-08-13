@@ -93,7 +93,7 @@ def verificar_calibracao_tau_omega(
         print(
             f"[AVISO DE CALIBRAÇÃO] Precisão do prior ({precisao_prior_media:.1f}) é "
             f"{razao:.1f}x maior que a precisão média das views ({precisao_views_media:.1f}). "
-            f"As views provavelmente estão sendo afogadas pelo prior -- considere reduzir tau "
+            f"As views provavelmente estão sendo afogadas pelo prior -- considere AUMENTAR tau "
             f"ou revisar a escala de Omega produzida pelo Agente 4."
         )
 
