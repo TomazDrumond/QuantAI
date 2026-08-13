@@ -82,6 +82,26 @@ def decidir_execucao(
     pesos_finais = pesos_atuais_com_drift.copy()
     pesos_finais[executar] = pesos_alvo[executar]
 
+    # CORREÇÃO (bug confirmado em execução real: o gráfico de alocação
+    # falhou com "Column 'VALE3' contains both positive and negative
+    # values" numa carteira que deveria ser ESTRITAMENTE long-only).
+    # O cvxpy do Agente 6 garante w >= 0 na saída do otimizador, mas
+    # `pesos_atuais_com_drift` pode chegar aqui com valores negativos
+    # (drift mal calculado a montante). A renormalização por soma NÃO
+    # remove negativos -- ela os PROPAGA e, se a soma for pequena, os
+    # AMPLIFICA a cada janela, produzindo os pesos de -63% e exposição
+    # bruta de 1120% reportados na auditoria externa.
+    negativos = pesos_finais[pesos_finais < 0]
+    if len(negativos) > 0:
+        print(
+            f"[AVISO LONG-ONLY] {len(negativos)} ativo(s) chegaram com peso negativo "
+            f"ao Agente 7 (mín={negativos.min():.4f}): {list(negativos.index)}. "
+            f"Truncados em 0 para preservar a restrição long-only. A CAUSA RAIZ está "
+            f"a montante (cálculo de drift da carteira), não aqui -- este truncamento "
+            f"é uma barreira de contenção, não a correção do problema de origem."
+        )
+    pesos_finais = pesos_finais.clip(lower=0.0)
+
     soma = pesos_finais.sum()
     if soma > 0:
         pesos_finais = pesos_finais / soma
@@ -103,14 +123,15 @@ def decidir_execucao(
 class CustosTransacao:
     """
     Todos os valores monetários (custo_emolumentos, custo_corretagem,
-    custo_slippage_estimado, custo_total) estão na MESMA unidade
-    monetária de valor_carteira -- este projeto assume R$ (reais) em
-    todo o pipeline (não há conversão de moeda em nenhum agente).
+    custo_slippage_estimado, custo_ir, custo_total) estão na MESMA
+    unidade monetária de valor_carteira -- este projeto assume R$ (reais)
+    em todo o pipeline (não há conversão de moeda em nenhum agente).
     custo_total_pct_carteira é adimensional (fração, ex: 0.0002 = 0,02%).
     """
     custo_emolumentos: float
     custo_corretagem: float
     custo_slippage_estimado: float
+    custo_ir: float
     custo_total: float
     custo_total_pct_carteira: float
 
@@ -122,6 +143,8 @@ def calcular_custos_transacao(
     taxa_emolumentos: float = 0.0325 / 100,   # aproximação B3, ajustável
     corretagem_por_operacao: float = 0.0,      # muitas corretoras oferecem 0 para ações -- ajustável
     slippage_bps_por_ativo: dict[str, float] | None = None,  # custo de impacto, em bps, por ticker
+    ganho_realizado: float = 0.0,              # R$ de ganho/perda realizado nas VENDAS desta rodada
+    aliquota_ir: float = 0.15,                 # 15% -- operações comuns/swing trade na B3
 ) -> CustosTransacao:
     """
     UNIDADE: valor_carteira deve estar em R$ (reais) -- o pipeline
@@ -139,11 +162,25 @@ def calcular_custos_transacao(
     Estima custos SOMENTE sobre o volume de fato negociado (ativos com
     variação de peso entre antes/depois), não sobre a carteira inteira.
 
-    NOTA DE LIMITAÇÃO (documentada, não escondida): não inclui Imposto de
-    Renda sobre ganho de capital -- isso exige rastreamento de custo
-    médio de aquisição por lote (FIFO), que é uma extensão futura fora
-    do escopo desta versão. Ver Fase0_Premissas_QuantAI.docx, Seção 10
-    (Limitações Declaradas).
+    IMPOSTO DE RENDA (15%, incluído a partir desta versão):
+      IR incide sobre o GANHO REALIZADO nas vendas, NÃO sobre o volume
+      negociado -- por isso `ganho_realizado` é um parâmetro que o
+      chamador precisa fornecer (em R$), não algo derivável só de
+      pesos_antes/pesos_depois. Prejuízo realizado (ganho_realizado < 0)
+      gera IR zero nesta rodada.
+
+      SIMPLIFICAÇÕES DELIBERADAS (declaradas, não escondidas):
+        1. Não há rastreamento FIFO de custo médio de aquisição por lote
+           -- o ganho realizado precisa ser estimado a montante.
+        2. Não há compensação de prejuízo acumulado contra ganhos de
+           meses seguintes (a legislação permite; aqui, prejuízo
+           simplesmente não gera crédito).
+        3. Não há isenção de R$ 20 mil/mês para vendas de ações (pessoa
+           física) -- assumimos um veículo sem essa isenção, o que é
+           conservador (superestima o imposto).
+        4. Alíquota única de 15% (operações comuns/swing trade); day
+           trade (20%) não é modelado, coerente com uma estratégia de
+           rebalanceamento quadrimestral.
     """
     variacao = (pesos_depois - pesos_antes).abs()
     ativos_negociados = variacao[variacao > 1e-9]
@@ -160,11 +197,16 @@ def calcular_custos_transacao(
     else:
         custo_slippage = 0.0
 
-    custo_total = custo_emolumentos + custo_corretagem + custo_slippage
+    # IR só sobre ganho POSITIVO realizado -- prejuízo não gera imposto
+    # (nem crédito, ver simplificação 2 acima).
+    custo_ir = max(0.0, float(ganho_realizado)) * aliquota_ir
+
+    custo_total = custo_emolumentos + custo_corretagem + custo_slippage + custo_ir
     return CustosTransacao(
         custo_emolumentos=custo_emolumentos,
         custo_corretagem=custo_corretagem,
         custo_slippage_estimado=custo_slippage,
+        custo_ir=custo_ir,
         custo_total=custo_total,
         custo_total_pct_carteira=custo_total / valor_carteira if valor_carteira > 0 else 0.0,
     )
