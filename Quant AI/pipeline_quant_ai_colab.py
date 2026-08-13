@@ -214,8 +214,8 @@ def rodar_backtest_walkforward(
                     res_resumo = resumo_epsilon(res_grid)
                     if not res_resumo.empty:
                         return float(res_resumo.iloc[0]["epsilon_min"])
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[AVISO] Recalibração de epsilon_min falhou em {dt_atual_date}: {e} -- usando default 0.01.")
             return 0.01
 
         def _recalib_corr(hist_df):
@@ -225,8 +225,8 @@ def rodar_backtest_walkforward(
                     res_resumo = resumo_corr(res_grid)
                     if not res_resumo.empty:
                         return float(res_resumo.iloc[0]["corr_min"])
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[AVISO] Recalibração de corr_min falhou em {dt_atual_date}: {e} -- usando default 0.25.")
             return 0.25
 
         # Carrega histórico de notícias acumulado até t-1 se disponível
@@ -251,6 +251,39 @@ def rodar_backtest_walkforward(
                         else:
                             rets_fwd.append(0.0)
                     hist_sent_acumulado["retorno_realizado_fwd"] = rets_fwd
+
+                # CORREÇÃO (auditoria externa, confirmada): calibracao_corr_min.py
+                # exige a coluna 'correlacao', que nunca era construída aqui -- a
+                # recalibração de corr_min lançava ValueError sempre, capturada
+                # silenciosamente pelo except acima, caindo sempre no default 0.25
+                # (nunca recalibrando de verdade). Calcula a correlação móvel real
+                # (mesma função usada no fluxo diário, Agente 4) para cada linha,
+                # usando apenas dado até a própria data da linha (sem look-ahead --
+                # correlação móvel é causal por construção, mas o .loc[:dt_tmp]
+                # abaixo garante isso explicitamente mesmo assim).
+                if not hist_sent_acumulado.empty and "correlacao" not in hist_sent_acumulado.columns:
+                    try:
+                        retornos_mkt_completo = np.log(df_precos / df_precos.shift(1)).mean(axis=1)
+                    except Exception:
+                        retornos_mkt_completo = None
+
+                    cache_corr_series: dict[str, pd.Series] = {}
+                    correlacoes = []
+                    for idx_s, r_s in hist_sent_acumulado.iterrows():
+                        tk_tmp = r_s["ticker"]
+                        dt_tmp = r_s["data"]
+                        corr_val = 0.50
+                        if retornos_mkt_completo is not None and tk_tmp in df_precos.columns:
+                            if tk_tmp not in cache_corr_series:
+                                ret_tk = np.log(df_precos[tk_tmp] / df_precos[tk_tmp].shift(1))
+                                cache_corr_series[tk_tmp] = calcular_correlacao_movel(
+                                    ret_tk, retornos_mkt_completo, janela_dias=60
+                                )
+                            serie_ate_dt = cache_corr_series[tk_tmp].loc[:dt_tmp].dropna()
+                            if not serie_ate_dt.empty:
+                                corr_val = float(serie_ate_dt.iloc[-1])
+                        correlacoes.append(corr_val)
+                    hist_sent_acumulado["correlacao"] = correlacoes
 
         estado_calib = passo_walk_forward(
             estado_calib, dt_atual_date,
@@ -319,15 +352,26 @@ def rodar_backtest_walkforward(
                     if not np.isnan(om_final):
                         Omega_por_ativo[tk_s] = max(om_final, estado_calib.epsilon_min)
 
-        for t in tickers_validos:
-            if t not in Q_por_ativo:
-                Q_por_ativo[t] = 0.0
-                Omega_por_ativo[t] = max(0.03, estado_calib.epsilon_min)
+        # CORREÇÃO P0.5 (auditoria externa, confirmada): NÃO preencher Q=0.0/
+        # Omega=0.03 para ativos sem notícia -- isso cria uma VIEW VÁLIDA de
+        # retorno zero (que puxa a posterior para baixo, favorecendo CDI),
+        # quando o correto é AUSÊNCIA de view. O mecanismo de montar_views_validas
+        # (agente_6_bl_optimizer.py), já testado, trata corretamente um ticker
+        # ausente de Q_por_ativo/Omega_por_ativo como "sem view" -- a posterior
+        # dele colapsa exatamente ao prior Pi. Não precisa (e não deve) inventar
+        # uma entrada artificial aqui.
+        tickers_com_view_real = list(Q_por_ativo.keys())
 
-        q_sim = np.array([Q_por_ativo[t] for t in tickers_validos])
-        omega_sim = np.array([Omega_por_ativo[t] for t in tickers_validos])
+        if tickers_com_view_real:
+            q_sim = np.array([Q_por_ativo[t] for t in tickers_com_view_real])
+            omega_sim = np.array([Omega_por_ativo[t] for t in tickers_com_view_real])
+            mediana_omega = float(np.median(omega_sim))
+        else:
+            # Nenhum ativo com sinal real nesta janela -- usa piso padrão só
+            # para a heurística de calibração de tau abaixo, sem inventar
+            # nenhuma view no Q_por_ativo/Omega_por_ativo reais.
+            mediana_omega = 0.03
 
-        mediana_omega = float(np.median(omega_sim))
         mediana_diag_sigma = float(np.median(np.diag(Sigma)))
         tau = razao_precisao_alvo * mediana_omega / max(mediana_diag_sigma, 1e-8)
         tau = max(tau, 0.01)
@@ -355,8 +399,19 @@ def rodar_backtest_walkforward(
 
         fatia_precos = df_precos.loc[dt_inicio:dt_fim, tickers_validos].dropna(how="all")
         
-        # r_cdi em escala ANUAL (selic_anual_janela) para igualar a escala anual de E_R e Sigma
-        r_cdi_anual = selic_anual_janela
+        # CORREÇÃO P0.1 (auditoria externa, confirmada): Pi = delta*Sigma@w_mkt e Q
+        # (escala "alpha") estão em RETORNO EXCEDENTE (prêmio de risco), não retorno
+        # total. Passar a taxa Selic total (~10-13% a.a.) como r_cdi comparava
+        # diretamente retorno excedente (equities) contra retorno total (CDI) na
+        # mesma função-objetivo -- isso empurrava a solução para CDI de forma
+        # estruturalmente enviesada, mesmo com a otimização sendo conjunta/correta.
+        # Como o CDI É o ativo livre de risco, seu retorno EXCEDENTE sobre si mesmo
+        # é 0 por definição -- não a taxa Selic observada. selic_anual_janela
+        # continua usada abaixo para simular o retorno TOTAL realizado (equities
+        # em retorno total de preço + CDI em retorno total da Selic) -- a mistura
+        # excesso/total só era um problema DENTRO da função-objetivo do otimizador,
+        # não na simulação de patrimônio.
+        r_cdi_anual = 0.0
 
         res = rodar_um_rebalanceamento(
             tickers_validos, Pi, Sigma, tau, delta,
