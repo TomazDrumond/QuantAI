@@ -35,11 +35,55 @@ import matplotlib.dates as mdates
 # afastado de qualquer tom de azul usado pelos outros ativos.
 COR_CDI = "#0B1B3D"      # Aegean Navy (paleta oficial Minerva IX)
 COR_OUTROS = "#9AA3AF"   # cinza neutro -- claramente distinto do navy do CDI
+
+# CORREÇÃO: a paleta anterior tinha dois pares de cores próximas demais
+# (UGPA3/BBDC4, os dois em laranja/âmbar; WEGE3/OUTROS, os dois em cinza)
+# -- confirmado visualmente pelo usuário num gráfico real com 10 ativos.
+# Esta paleta foi selecionada COMPUTACIONALMENTE (não à mão): todo par
+# de cores aqui -- incluindo contra COR_CDI e COR_OUTROS -- tem distância
+# euclidiana em RGB >= 70 (ver _checar_paleta_distinguivel), o que já
+# pegou colisões que uma escolha manual anterior não tinha percebido
+# (ex: ouro vs. laranja, azul vs. índigo).
 PALETA_ATIVOS = [
-    "#D4AF37", "#27AE60", "#E67E22", "#8E44AD", "#16A085",
-    "#C0392B", "#2980B9", "#F39C12", "#7F8C8D", "#1ABC9C",
-    "#D35400", "#34495E",
+    "#D4AF37",  # ouro (identidade Minerva IX)
+    "#4E79A7",  # azul
+    "#59A14F",  # verde
+    "#E15759",  # vermelho
+    "#FF9DA7",  # rosa
+    "#9C755F",  # marrom
+    "#C77DFF",  # violeta
+    "#6B4226",  # marrom escuro
+    "#06D6A0",  # verde-menta
+    "#FFD166",  # amarelo
+    "#7209B7",  # roxo escuro
 ]
+
+
+def _distancia_rgb(cor_hex_a: str, cor_hex_b: str) -> float:
+    """Distância euclidiana simples no espaço RGB -- suficiente para
+    detectar cores 'perigosamente parecidas', não precisa da precisão
+    perceptual de Lab/Delta-E para esse propósito."""
+    a = tuple(int(cor_hex_a.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+    b = tuple(int(cor_hex_b.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+    return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+def _checar_paleta_distinguivel(cores_em_uso: list[str], limite_minimo: float = 70.0) -> None:
+    """
+    Roda ANTES de qualquer gráfico usar as cores -- avisa se duas cores
+    atribuídas na mesma legenda ficaram próximas demais (o mesmo tipo de
+    bug já confirmado duas vezes nesta base: CDI_RF/OUTROS, depois
+    UGPA3/BBDC4 e WEGE3/OUTROS). limite_minimo=60 é conservador o
+    suficiente para pegar tons muito próximos sem disparar por cores
+    que só compartilham a mesma família de matiz mas são distinguíveis.
+    """
+    for i in range(len(cores_em_uso)):
+        for j in range(i + 1, len(cores_em_uso)):
+            dist = _distancia_rgb(cores_em_uso[i], cores_em_uso[j])
+            if dist < limite_minimo:
+                print(f"[AVISO PALETA] Cores {cores_em_uso[i]} e {cores_em_uso[j]} estão "
+                      f"visualmente próximas (distância RGB={dist:.1f}, limite={limite_minimo}) "
+                      f"-- risco de confusão na legenda.")
 
 
 def _montar_mapa_cores(colunas: list[str]) -> dict[str, str]:
@@ -60,6 +104,8 @@ def _montar_mapa_cores(colunas: list[str]) -> dict[str, str]:
         else:
             mapa[col] = PALETA_ATIVOS[idx_paleta % len(PALETA_ATIVOS)]
             idx_paleta += 1
+
+    _checar_paleta_distinguivel(list(mapa.values()))
     return mapa
 
 
