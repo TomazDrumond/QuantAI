@@ -129,6 +129,42 @@ def construir_composicao_pit(pasta_raiz: str) -> pd.DataFrame:
     return composicao.sort_values(["data_vigencia", "ticker"]).reset_index(drop=True)
 
 
+def selecionar_top_liquidos_por_janela(
+    composicao_pit: pd.DataFrame,
+    n_ativos: int = 15,
+) -> pd.DataFrame:
+    """
+    Fecha a decisão de projeto da Fase 0, nunca antes implementada: reduz
+    o universo de cada janela quadrimestral aos N ativos de maior peso
+    teórico no Ibovespa DAQUELA janela -- não uma lista fixa aplicada
+    retroativamente (isso reintroduziria survivorship bias, exatamente o
+    problema que a composição point-in-time já resolve).
+
+    Proxy de liquidez usado: `peso_pct`, o peso teórico oficial de cada
+    ativo na carteira do Ibovespa naquele quadrimestre -- já vem pronto
+    de parsear_arquivo_virada (arquivo oficial B3), sem precisar buscar
+    volume médio diário (ADV) separadamente. A própria metodologia de
+    ponderação do Ibovespa já reflete liquidez (é por isso que ativos
+    pouco líquidos têm peso baixo ou não entram no índice).
+
+    Retorna: mesmo schema de composicao_pit, só que com no máximo
+    n_ativos linhas por data_vigencia (os de maior peso_pct).
+    """
+    obrigatorias = {"data_vigencia", "ticker", "peso_pct"}
+    faltando = obrigatorias - set(composicao_pit.columns)
+    if faltando:
+        raise ValueError(f"Colunas obrigatórias ausentes: {faltando}")
+
+    return (
+        composicao_pit
+        .sort_values(["data_vigencia", "peso_pct"], ascending=[True, False])
+        .groupby("data_vigencia", group_keys=False)
+        .head(n_ativos)
+        .sort_values(["data_vigencia", "ticker"])
+        .reset_index(drop=True)
+    )
+
+
 # --------------------------------------------------------------------------
 # 3. Derivar eventos de entrada/saída a partir de snapshots consecutivos
 # --------------------------------------------------------------------------
