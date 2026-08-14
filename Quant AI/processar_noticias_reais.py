@@ -108,23 +108,31 @@ def processar_base_noticias(
         ts_noticia = row.get("timestamp_noticia", f"{dt} 08:00:00")
 
         # Processamento POR PROVIDER (não descarta providers com chave válida!)
-        prov_map = {}
+        # CORREÇÃO (bug confirmado em execução real): s1/s2/s3 usavam 0.0
+        # tanto para "modelo respondeu neutro" quanto para "modelo falhou/
+        # não foi chamado" -- as duas situações ficavam indistinguíveis, e
+        # o score_meta (média de s1,s2,s3) diluía o sinal real por um fator
+        # de até 3x quando 2 dos 3 providers falhavam (ex: sem crédito).
+        # Agora usa NaN para ausência/falha -- pandas já ignora NaN em
+        # median()/mean() automaticamente, e o Agente 4 (calcular_omega)
+        # já foi testado para lidar com 1, 2 ou 3 scores válidos via NaN.
+        prov_map: dict[str, float] = {}
         for prov in ["anthropic", "openai", "gemini"]:
             if api_keys.get(prov):
-                # Executa API real do provider individual
                 try:
                     score_obj = pontuar_noticia(tk, nid, txt, {prov: api_keys[prov]})
-                    if score_obj:
+                    if score_obj and score_obj[0].valido:
                         prov_map[prov] = score_obj[0].score
                     else:
-                        prov_map[prov] = 0.0
+                        prov_map[prov] = np.nan  # falhou ou resposta inválida -- NÃO é neutro
                 except Exception as e:
-                    print(f"[AVISO] Erro na API real do provider '{prov}': {e}. Usando fallback para esta notícia.")
-                    resp_mock = _simular_resposta_llm_fallback(tk, txt, prov, seed=idx)
-                    score_obj = processar_resposta_llm(resp_mock, tk, nid, prov)
-                    prov_map[prov] = score_obj.score
+                    print(f"[AVISO] Erro na API real do provider '{prov}': {e}. "
+                          f"Marcando como ausente (NaN), não como neutro.")
+                    prov_map[prov] = np.nan
             else:
-                # Fallback estocástico apenas para o provider sem chave
+                # Fallback estocástico apenas para o provider sem chave --
+                # mantém o dado utilizável para teste de software, mas
+                # continua sendo simulado, não um score real.
                 resp_mock = _simular_resposta_llm_fallback(tk, txt, prov, seed=idx)
                 score_obj = processar_resposta_llm(resp_mock, tk, nid, prov)
                 prov_map[prov] = score_obj.score
@@ -134,13 +142,20 @@ def processar_base_noticias(
             "data": dt,
             "ticker": tk,
             "noticia_id": nid,
-            "s1": prov_map.get("anthropic", 0.0),
-            "s2": prov_map.get("openai", 0.0),
-            "s3": prov_map.get("gemini", 0.0),
+            "texto_noticia": txt,
+            "s1": prov_map.get("anthropic", np.nan),
+            "s2": prov_map.get("openai", np.nan),
+            "s3": prov_map.get("gemini", np.nan),
         })
 
     df_bruto = pd.DataFrame(linhas_pontuadas)
-    
+
+    # Salva o CSV por notícia -- é o que painel_diagnostico_sentimento.py
+    # consome (amostra aleatória + estatísticas de sanidade). Sem isso só
+    # existia o agregado diário, que já teria perdido a granularidade
+    # necessária para o diagnóstico.
+    df_bruto.to_csv("sentimento_bruto_por_noticia.csv", index=False)
+
     # Importa Agente 3 para agregar
     from agente_3_aggregation_agent import agregar_meta_score
     df_agregado = agregar_meta_score(df_bruto, metodo_agregacao="mediana")
