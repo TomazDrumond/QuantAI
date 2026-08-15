@@ -91,14 +91,22 @@ def decidir_execucao(
     # remove negativos -- ela os PROPAGA e, se a soma for pequena, os
     # AMPLIFICA a cada janela, produzindo os pesos de -63% e exposição
     # bruta de 1120% reportados na auditoria externa.
+    # Ruído de ponto flutuante do solver (ex: -1e-12 em vez de exatamente
+    # 0.0) é sempre truncado, mas só gera aviso se for MATERIAL -- senão
+    # o log fica poluído com avisos de algo que não é o bug real que
+    # esse truncamento existe para pegar (pesos como -63% do P0.3
+    # original). limite de 1e-6 separa ruído numérico de problema real.
+    TOLERANCIA_RUIDO_NUMERICO = 1e-6
     negativos = pesos_finais[pesos_finais < 0]
-    if len(negativos) > 0:
+    negativos_materiais = negativos[negativos < -TOLERANCIA_RUIDO_NUMERICO]
+    if len(negativos_materiais) > 0:
         print(
-            f"[AVISO LONG-ONLY] {len(negativos)} ativo(s) chegaram com peso negativo "
-            f"ao Agente 7 (mín={negativos.min():.4f}): {list(negativos.index)}. "
-            f"Truncados em 0 para preservar a restrição long-only. A CAUSA RAIZ está "
-            f"a montante (cálculo de drift da carteira), não aqui -- este truncamento "
-            f"é uma barreira de contenção, não a correção do problema de origem."
+            f"[AVISO LONG-ONLY] {len(negativos_materiais)} ativo(s) chegaram com peso "
+            f"MATERIALMENTE negativo (mín={negativos_materiais.min():.6f}): "
+            f"{list(negativos_materiais.index)}. Truncados em 0 para preservar a restrição "
+            f"long-only. A CAUSA RAIZ está a montante (cálculo de drift da carteira), não "
+            f"aqui -- este truncamento é uma barreira de contenção, não a correção do "
+            f"problema de origem."
         )
     pesos_finais = pesos_finais.clip(lower=0.0)
 

@@ -138,7 +138,7 @@ def _chamar_anthropic(prompt: str, api_key: str, modelo: str = "claude-sonnet-4-
     import anthropic
     cliente = anthropic.Anthropic(api_key=api_key)
     resposta = cliente.messages.create(
-        model=modelo, max_tokens=200,
+        model=modelo, max_tokens=200, temperature=0.0,  # determinístico -- coerente com o cache
         messages=[{"role": "user", "content": prompt}],
     )
     return resposta.content[0].text
@@ -148,7 +148,7 @@ def _chamar_openai(prompt: str, api_key: str, modelo: str = "gpt-4o") -> str:
     from openai import OpenAI
     cliente = OpenAI(api_key=api_key)
     resposta = cliente.chat.completions.create(
-        model=modelo, max_tokens=200,
+        model=modelo, max_tokens=200, temperature=0.0,  # determinístico -- coerente com o cache
         messages=[{"role": "user", "content": prompt}],
     )
     return resposta.choices[0].message.content
@@ -166,8 +166,12 @@ def _chamar_gemini(prompt: str, api_key: str, modelo: str = "gemini-3.5-flash") 
     `from google import genai`, com padrão client.models.generate_content().
     """
     from google import genai
+    from google.genai import types
     cliente = genai.Client(api_key=api_key)
-    resposta = cliente.models.generate_content(model=modelo, contents=prompt)
+    resposta = cliente.models.generate_content(
+        model=modelo, contents=prompt,
+        config=types.GenerateContentConfig(temperature=0.0),  # determinístico -- coerente com o cache
+    )
     return resposta.text
 
 

@@ -108,7 +108,13 @@ def rodar_um_rebalanceamento(
     resultado_bl = bl_optimizer(E_R, Sigma, delta, w_max=w_max, r_cdi=r_cdi)
 
     pesos_alvo_equities = pd.Series(resultado_bl.pesos[:len(tickers)], index=tickers)
-    peso_cdi = float(resultado_bl.pesos[len(tickers)]) if r_cdi is not None else 0.0
+    # Mesmo ruído numérico de ponto flutuante que já tratamos nos pesos de
+    # equity (Agente 7) também aparece aqui -- o cvxpy pode devolver algo
+    # como -1e-12 em vez de exatamente 0.0 para uma restrição w>=0 ativa
+    # no limite. Sem o clip, isso quebra o gráfico de área empilhada
+    # (exige coluna estritamente >=0 ou <=0 em TODAS as linhas -- um
+    # único valor residual negativo já derruba o gráfico inteiro).
+    peso_cdi = max(0.0, float(resultado_bl.pesos[len(tickers)])) if r_cdi is not None else 0.0
 
     bandas = calcular_banda_nao_negociacao(historico_pesos_alvo, fator_liquidez)
     decisao = decidir_execucao(pesos_alvo_equities, pesos_atuais_com_drift, bandas)
