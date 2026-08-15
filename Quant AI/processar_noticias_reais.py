@@ -35,11 +35,24 @@ def _caminho_cache_padrao() -> str:
     Não precisa passar caminho_cache manualmente em cada chamada -- só
     montar o Drive ANTES de chamar processar_base_noticias já basta.
     """
+    return os.path.join(_pasta_persistente(), "cache_sentimento.db")
+
+
+def _pasta_persistente() -> str:
+    """
+    Mesma lógica de detecção do Drive usada para o cache SQLite, mas
+    genérica -- usada também para os CSVs de saída (sentimento_bruto_
+    por_noticia.csv, sentimento_agregado_diario.csv). Sem isso, esses
+    CSVs ficavam só no /content local: o cache de score (rápido, já
+    resolvido) persistia entre sessões, mas o CSV agregado precisava
+    ser remontado do zero a cada reinício -- rápido com cache quente,
+    mas ainda um passo evitável.
+    """
     pasta_drive = "/content/drive/MyDrive/QuantAI"
     if os.path.isdir("/content/drive/MyDrive"):
         os.makedirs(pasta_drive, exist_ok=True)
-        return os.path.join(pasta_drive, "cache_sentimento.db")
-    return "cache_sentimento.db"
+        return pasta_drive
+    return "."
 
 # Precisa bater com os defaults de modelo em agente_2_sentiment_agents.py
 # (_chamar_anthropic/_chamar_openai/_chamar_gemini) -- é o que a chave do
@@ -214,7 +227,8 @@ def processar_base_noticias(
     # consome (amostra aleatória + estatísticas de sanidade). Sem isso só
     # existia o agregado diário, que já teria perdido a granularidade
     # necessária para o diagnóstico.
-    df_bruto.to_csv("sentimento_bruto_por_noticia.csv", index=False)
+    caminho_bruto = os.path.join(_pasta_persistente(), "sentimento_bruto_por_noticia.csv")
+    df_bruto.to_csv(caminho_bruto, index=False)
 
     # Importa Agente 3 para agregar
     from agente_3_aggregation_agent import agregar_meta_score
@@ -295,6 +309,6 @@ if __name__ == "__main__":
     print("\n--- 2. Primeiros 5 Sinais Agregados Diários (Agente 3 - Mediana) ---")
     print(df_agregado.head(5).to_string(index=False))
 
-    caminho_saida = "sentimento_agregado_diario.csv"
+    caminho_saida = os.path.join(_pasta_persistente(), "sentimento_agregado_diario.csv")
     df_agregado.to_csv(caminho_saida, index=False)
     print(f"\n[SUCESSO] Base de sentimento agregada com {len(df_agregado)} registros salva em '{caminho_saida}'.")
