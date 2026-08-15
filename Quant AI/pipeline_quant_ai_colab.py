@@ -54,6 +54,7 @@ from gerar_graficos_relatorio import plotar_curva_patrimonio_e_drawdown, plotar_
 from calibracao_epsilon_min import rodar_grid_calibracao as grid_epsilon, resumir_grid as resumo_epsilon
 from calibracao_corr_min import rodar_grid_calibracao as grid_corr, resumir_grid as resumo_corr
 from mapeamento_percentil_retorno import construir_tabela_percentis_retorno, score_para_q
+from processar_noticias_reais import _pasta_persistente  # mesma fonte de verdade do caminho (Drive se montado, local senão)
 
 
 # --------------------------------------------------------------------------
@@ -236,7 +237,19 @@ def rodar_backtest_walkforward(
         # Calculo de retorno proxy do índice para o filtro de correlação (Item C)
         retornos_mkt = retornos_hist.mean(axis=1)
 
-        caminho_sentimento = "sentimento_agregado_diario.csv"
+        # CORREÇÃO (bug real, confirmado por gráfico de alocação sem
+        # nenhum sentimento aplicado): este caminho era fixo e local --
+        # deixou de encontrar o arquivo depois que processar_noticias_reais.py
+        # passou a salvar no Drive (para persistir entre sessões). Sem o
+        # arquivo, o backtest inteiro rodava com Q_por_ativo/Omega_por_ativo
+        # sempre vazios, silenciosamente -- BL caindo no prior puro.
+        caminho_sentimento = os.path.join(_pasta_persistente(), "sentimento_agregado_diario.csv")
+        if i == 0 and not os.path.exists(caminho_sentimento):
+            print(
+                f"\n[ALERTA CRÍTICO] '{caminho_sentimento}' não encontrado -- o backtest vai "
+                f"rodar SEM NENHUM sinal de sentimento (Black-Litterman cai no prior puro em "
+                f"toda janela). Rode processar_noticias_reais.py antes desta célula.\n"
+            )
         Q_por_ativo = {}
         Omega_por_ativo = {}
 

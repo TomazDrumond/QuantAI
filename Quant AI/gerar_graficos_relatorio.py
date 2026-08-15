@@ -86,24 +86,60 @@ def _checar_paleta_distinguivel(cores_em_uso: list[str], limite_minimo: float = 
                       f"-- risco de confusão na legenda.")
 
 
+# CORREÇÃO: antes, a cor de cada ativo vinha da posição dele no ranking
+# de peso médio DAQUELA rodada específica -- o mesmo ativo (ex: WEGE3)
+# podia sair rosa numa figura e dourado em outra, só porque o ranking
+# de topo mudou entre execuções. Isso atrapalha comparar gráficos lado
+# a lado no relatório. Agora, os tickers mais frequentes do projeto têm
+# cor FIXA, atribuída uma vez, nunca dependente do ranking da rodada.
+CORES_TICKERS_CONHECIDOS: dict[str, str] = {
+    "PETR4": "#D4AF37", "PETR3": "#4E79A7", "VALE3": "#59A14F", "ITUB4": "#E15759",
+    "BBDC4": "#FF9DA7", "BBAS3": "#9C755F", "WEGE3": "#C77DFF", "ABEV3": "#6B4226",
+    "B3SA3": "#06D6A0", "ITSA4": "#FFD166", "SUZB3": "#7209B7", "RENT3": "#B5179E",
+    "EQTL3": "#4361EE", "GGBR4": "#4CC9F0", "RAIL3": "#F72585", "PRIO3": "#780000",
+    "ELET3": "#C1121F", "MRVE3": "#FDF0D5",
+}
+
+
+def _cor_hash_estavel(ticker: str, cores_ja_usadas: set[str]) -> str:
+    """
+    Fallback para ticker fora de CORES_TICKERS_CONHECIDOS: escolhe uma
+    cor da paleta de forma determinística (hash estável via hashlib, não
+    o hash() nativo do Python -- esse é randomizado por processo, não
+    serviria para manter a MESMA cor entre execuções diferentes). Evita
+    colisão com cores já em uso nesta mesma figura via linear probing.
+    """
+    import hashlib
+    indice_base = int(hashlib.sha256(ticker.encode()).hexdigest(), 16) % len(PALETA_ATIVOS)
+    for offset in range(len(PALETA_ATIVOS)):
+        candidata = PALETA_ATIVOS[(indice_base + offset) % len(PALETA_ATIVOS)]
+        if candidata not in cores_ja_usadas:
+            return candidata
+    return PALETA_ATIVOS[indice_base]  # paleta esgotada -- aceita repetição como último recurso
+
+
 def _montar_mapa_cores(colunas: list[str]) -> dict[str, str]:
     """
-    Monta o dicionário {coluna: cor} explicitamente -- CDI_RF e OUTROS
-    recebem cores fixas e garantidamente distintas entre si; os demais
-    ativos recebem cores de uma paleta qualitativa curada (não uma
-    colormap contínua), ciclando se houver mais ativos que cores na
-    paleta.
+    Monta o dicionário {coluna: cor}. CDI_RF e OUTROS têm cor fixa e
+    distinta entre si. Tickers conhecidos (CORES_TICKERS_CONHECIDOS) têm
+    cor fixa, estável entre QUALQUER gráfico e QUALQUER rodada -- não
+    depende mais do ranking de peso da execução atual. Tickers não
+    catalogados caem no hash estável determinístico.
     """
     mapa = {}
-    idx_paleta = 0
+    cores_usadas: set[str] = {COR_CDI, COR_OUTROS}
+
     for col in colunas:
         if col == "CDI_RF":
             mapa[col] = COR_CDI
         elif col == "OUTROS":
             mapa[col] = COR_OUTROS
+        elif col in CORES_TICKERS_CONHECIDOS:
+            mapa[col] = CORES_TICKERS_CONHECIDOS[col]
+            cores_usadas.add(mapa[col])
         else:
-            mapa[col] = PALETA_ATIVOS[idx_paleta % len(PALETA_ATIVOS)]
-            idx_paleta += 1
+            mapa[col] = _cor_hash_estavel(col, cores_usadas)
+            cores_usadas.add(mapa[col])
 
     _checar_paleta_distinguivel(list(mapa.values()))
     return mapa
