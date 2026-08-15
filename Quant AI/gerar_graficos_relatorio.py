@@ -168,29 +168,35 @@ def plotar_curva_patrimonio_e_drawdown(
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [2.5, 1]})
     plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
 
-    ax1.plot(datas, patrimonio_carteira, label="Minerva IX", color="#1f77b4", linewidth=2.0)
+    ax1.plot(datas, patrimonio_carteira, label="Quant AI (Estratégia)", color="#1f77b4", linewidth=2.0)
 
     if retornos_ibov is not None and len(retornos_ibov) == len(retornos_carteira):
         patrimonio_ibov = valor_inicial * np.cumprod(1.0 + retornos_ibov)
-        ax1.plot(datas, patrimonio_ibov, label="Ibovespa ", color="#ff7f0e", linestyle="--", linewidth=1.5, alpha=0.85)
+        ax1.plot(datas, patrimonio_ibov, label="Ibovespa (Benchmark)", color="#ff7f0e", linestyle="--", linewidth=1.5, alpha=0.85)
 
     if retornos_cdi is not None and len(retornos_cdi) == len(retornos_carteira):
         patrimonio_cdi = valor_inicial * np.cumprod(1.0 + retornos_cdi)
-        ax1.plot(datas, patrimonio_cdi, label="CDI ", color="#2ca02c", linestyle=":", linewidth=1.5, alpha=0.85)
+        ax1.plot(datas, patrimonio_cdi, label="CDI (Taxa Livre de Risco)", color="#2ca02c", linestyle=":", linewidth=1.5, alpha=0.85)
 
-    # CORREÇÃO: título com datas reais da série, não hardcoded
+    # CORREÇÃO: eixos ficavam fracos demais ao lado do texto em negrito
+    # do restante do slide -- números dos ticks nunca tinham tamanho
+    # definido (usavam o padrão do matplotlib, ~10pt). Aumentados aqui
+    # para ficarem legíveis mesmo com o gráfico reduzido a um
+    # quadrante pequeno do slide.
     ano_inicio, ano_fim = datas.min().year, datas.max().year
-    ax1.set_title(f"Evolução de Patrimônio Acumulado — Quant AI ({ano_inicio}-{ano_fim})", fontsize=14, fontweight='bold', pad=12)
-    ax1.set_ylabel("Patrimônio (R$)", fontsize=11)
+    ax1.set_title(f"Evolução de Patrimônio Acumulado — Quant AI ({ano_inicio}-{ano_fim})", fontsize=16, fontweight='bold', pad=12)
+    ax1.set_ylabel("Patrimônio (R$)", fontsize=14, fontweight='bold')
     ax1.yaxis.set_major_formatter('R$ {x:,.0f}')
-    ax1.legend(loc="upper left", frameon=True)
+    ax1.tick_params(axis='both', which='major', labelsize=13)
+    ax1.legend(loc="upper left", frameon=True, fontsize=12)
     ax1.grid(True, linestyle="--", alpha=0.5)
 
     ax2.plot(datas, drawdown_carteira, color="#d62728", linewidth=1.2, label="Drawdown Quant AI")
     ax2.fill_between(datas, drawdown_carteira, 0, color="#d62728", alpha=0.25)
-    ax2.set_title("Maximum Drawdown (%)", fontsize=11, fontweight='bold', pad=6)
-    ax2.set_ylabel("Drawdown (%)", fontsize=10)
+    ax2.set_title("Maximum Drawdown (%)", fontsize=14, fontweight='bold', pad=6)
+    ax2.set_ylabel("Drawdown (%)", fontsize=13, fontweight='bold')
     ax2.yaxis.set_major_formatter('{x:.0f}%')
+    ax2.tick_params(axis='both', which='major', labelsize=13)
     ax2.grid(True, linestyle="--", alpha=0.5)
 
     ax2.xaxis.set_major_locator(mdates.YearLocator())
@@ -245,14 +251,18 @@ def plotar_alocacao_pesos_historica(
     ax.set_xticks(range(0, len(df_plot), max(1, len(df_plot) // 12)))
     ax.set_xticklabels(
         [df_plot.index[i] for i in range(0, len(df_plot), max(1, len(df_plot) // 12))],
-        rotation=45, ha="right",
+        rotation=45, ha="right", fontsize=13,
     )
 
+    # CORREÇÃO: mesma razão do gráfico anterior -- eixos precisam
+    # competir visualmente com o texto em negrito do slide, não somem
+    # ao lado dele.
     ano_inicio, ano_fim = datas_originais.min().year, datas_originais.max().year
-    ax.set_title(f"Evolução Histórica da Alocação de Pesos — Minerva IX ({ano_inicio}-{ano_fim})", fontsize=14, fontweight='bold', pad=12)
-    ax.set_ylabel("Peso Alocado (%)", fontsize=11)
+    ax.set_title(f"Evolução Histórica da Alocação de Pesos — Minerva IX ({ano_inicio}-{ano_fim})", fontsize=16, fontweight='bold', pad=12)
+    ax.set_ylabel("Peso Alocado (%)", fontsize=14, fontweight='bold')
     ax.yaxis.set_major_formatter('{x:.0%}')
-    ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', frameon=True)
+    ax.tick_params(axis='y', which='major', labelsize=13)
+    ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', frameon=True, fontsize=11)
     ax.grid(True, linestyle="--", alpha=0.4)
 
     plt.tight_layout()
