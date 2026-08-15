@@ -104,6 +104,7 @@ def rodar_um_rebalanceamento(
     valor_carteira: float,
     w_max: float = 0.20,
     r_cdi: float | None = None,
+    retorno_janela_anterior: float = 0.0,
 ) -> dict:
     """Encadeia Agentes 6 -> 7 para um único instante de rebalanceamento."""
     E_R = calcular_posterior_bl(Pi, Sigma, tau, tickers, Q_por_ativo, Omega_por_ativo)
@@ -121,7 +122,18 @@ def rodar_um_rebalanceamento(
     bandas = calcular_banda_nao_negociacao(historico_pesos_alvo, fator_liquidez)
     decisao = decidir_execucao(pesos_alvo_equities, pesos_atuais_com_drift, bandas)
 
-    custos = calcular_custos_transacao(pesos_atuais_com_drift, decisao.pesos_finais, valor_carteira)
+    # IR incide sobre GANHO REALIZADO, não sobre volume negociado.
+    # Sem rastreamento FIFO completo (limitação já declarada no projeto),
+    # aproxima-se o ganho por: turnover desta janela (fração da carteira
+    # de fato negociada) x retorno acumulado na janela ANTERIOR (proxy de
+    # "quanto valorizou" a posição que está sendo parcialmente vendida
+    # agora). Calculado aqui, não antes, porque decisao.turnover só
+    # existe depois de decidir_execucao rodar.
+    ganho_realizado_estimado = 2.0 * decisao.turnover * valor_carteira * retorno_janela_anterior
+    custos = calcular_custos_transacao(
+        pesos_atuais_com_drift, decisao.pesos_finais, valor_carteira,
+        ganho_realizado=ganho_realizado_estimado,
+    )
 
     return {
         "pesos_alvo_bl": pesos_alvo_equities,
@@ -175,6 +187,13 @@ def rodar_backtest_walkforward(
     turnovers = []
     registros_concentracao = []
     valor_carteira = valor_inicial
+    # Rastreia o retorno da carteira na janela ANTERIOR -- usado só para
+    # a estimativa de ganho realizado do IR (ver comentário em
+    # rodar_um_rebalanceamento). Começa em 0.0: a primeira janela não
+    # tem "período anterior" para estimar ganho, então o IR dela é 0
+    # por construção (não há venda de posição ainda aberta há mais tempo).
+    retorno_janela_anterior = 0.0
+    custo_total_acumulado = 0.0
     historico_pesos_janelas: list[dict] = []
     datas_janelas_rebalanceamento = []
 
@@ -477,7 +496,7 @@ def rodar_backtest_walkforward(
             tickers_validos, Pi, Sigma, tau, delta,
             Q_por_ativo, Omega_por_ativo, pesos_atuais, historico_df,
             fator_liquidez, valor_carteira=valor_carteira, w_max=w_max,
-            r_cdi=r_cdi_anual,
+            r_cdi=r_cdi_anual, retorno_janela_anterior=retorno_janela_anterior,
         )
 
         pesos_alvo = res["pesos_alvo_bl"]
@@ -515,7 +534,19 @@ def rodar_backtest_walkforward(
             datas_ret = fatia_precos.index[1:]
             retornos_diarios_carteira.extend(ret_fatia)
             datas_diarias_carteira.extend(datas_ret.tolist())
+
+            # CORREÇÃO (bug confirmado: custos calculados desde o início do
+            # projeto, mas NUNCA descontados do patrimônio -- todo Sharpe,
+            # retorno total e drawdown reportado até agora era BRUTO, não
+            # líquido). O custo é descontado UMA VEZ no início da janela
+            # (é quando o rebalanceamento acontece), antes do retorno de
+            # mercado do período ser aplicado.
+            valor_carteira -= res["custos"].custo_total
+            custo_total_acumulado += res["custos"].custo_total
+            valor_carteira = max(0.0, valor_carteira)  # nunca negativo por custo isolado
             valor_carteira *= (1.0 + ret_fatia).prod()
+
+            retorno_janela_anterior = float((1.0 + ret_fatia).prod() - 1.0)
 
         # Acumula pesos por janela para o gráfico de alocação histórica (soma exata = 100%)
         peso_cdi_val = res["peso_cdi"] if res["peso_cdi"] is not None else 0.0
@@ -539,7 +570,9 @@ def rodar_backtest_walkforward(
 
     print(f"\nPeríodo simulado: {len(retornos_array)} dias úteis de negociação.")
     print(f"Patrimônio Final da Carteira: R$ {valor_carteira:,.2f} "
-          f"(Retorno total: {(valor_carteira/valor_inicial - 1)*100:.2f}%)\n")
+          f"(Retorno total LÍQUIDO de custos: {(valor_carteira/valor_inicial - 1)*100:.2f}%)")
+    print(f"Custo total acumulado (emolumentos + IR): R$ {custo_total_acumulado:,.2f} "
+          f"({custo_total_acumulado/valor_inicial*100:.2f}% do capital inicial)\n")
 
     # Item G: n_trials derivados do tamanho real dos candidatos dos grids (13 cada)
     relatorio = gerar_relatorio(
