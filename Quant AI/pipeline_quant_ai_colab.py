@@ -49,6 +49,7 @@ from agente_6_bl_optimizer import calcular_posterior_bl, bl_optimizer
 from agente_7_rebalancing_agent import calcular_banda_nao_negociacao, decidir_execucao, calcular_custos_transacao
 from agente_8_validator_agent import (
     gerar_relatorio, RegistroConcentracao, EstadoCalibracaoAgente8, passo_walk_forward,
+    calcular_metricas_benchmark,
 )
 from gerar_graficos_relatorio import plotar_curva_patrimonio_e_drawdown, plotar_alocacao_pesos_historica
 from calibracao_epsilon_min import rodar_grid_calibracao as grid_epsilon, resumir_grid as resumo_epsilon
@@ -588,6 +589,25 @@ def rodar_backtest_walkforward(
                     retornos_ibov_real = ret_bvsp
         except Exception:
             pass
+
+        # Métricas de Ibovespa e CDI para a tabela executiva do relatório --
+        # MESMA fórmula usada na estratégia (calcular_metricas_benchmark
+        # reusa calcular_sharpe/sortino/max_drawdown), para a comparação
+        # não favorecer nenhum lado com metodologia diferente.
+        print("\n=== MÉTRICAS DE BENCHMARK (para a tabela executiva do relatório) ===")
+        m_cdi = calcular_metricas_benchmark(retornos_cdi_diarios)
+        print(f" CDI        | Retorno Total: {m_cdi.retorno_total*100:6.2f}% | "
+              f"Sharpe: {m_cdi.sharpe:5.2f} | Sortino: {m_cdi.sortino:5.2f} | "
+              f"MDD: {m_cdi.max_drawdown*100:6.2f}%")
+        if retornos_ibov_real is not None:
+            m_ibov = calcular_metricas_benchmark(retornos_ibov_real)
+            print(f" Ibovespa   | Retorno Total: {m_ibov.retorno_total*100:6.2f}% | "
+                  f"Sharpe: {m_ibov.sharpe:5.2f} | Sortino: {m_ibov.sortino:5.2f} | "
+                  f"MDD: {m_ibov.max_drawdown*100:6.2f}%")
+        else:
+            print(" Ibovespa   | indisponível nesta rodada (falha ao baixar ^BVSP via yfinance)")
+        print(" (Turnover e Sharpe Deflacionado não se aplicam a um índice passivo -- use '-' na tabela)")
+        print("==============================================================")
 
         fig1 = plotar_curva_patrimonio_e_drawdown(
             datas=datas_idx,

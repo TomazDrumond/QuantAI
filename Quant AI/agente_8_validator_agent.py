@@ -65,6 +65,38 @@ def calcular_max_drawdown(retornos: np.ndarray) -> float:
     return float(drawdown.min())  # valor negativo, ex: -0.23 = -23%
 
 
+@dataclass
+class MetricasBenchmark:
+    retorno_total: float
+    sharpe: float
+    sortino: float
+    max_drawdown: float
+
+
+def calcular_metricas_benchmark(retornos: np.ndarray) -> MetricasBenchmark:
+    """
+    Métricas de um ativo/índice passivo (Ibovespa, CDI) para a tabela
+    executiva do relatório. Reusa AS MESMAS funções (calcular_sharpe,
+    calcular_sortino, calcular_max_drawdown) já usadas para a
+    estratégia -- garante comparação como-com-como, mesma metodologia
+    dos dois lados da tabela, sem fórmula alternativa "mais favorável"
+    para nenhum dos lados.
+
+    Turnover e Sharpe Deflacionado ficam de fora deliberadamente: um
+    índice passivo não executa ordens (turnover não se aplica) nem tem
+    parâmetro calibrado via grid (nada para deflacionar). Preencher a
+    tabela com "-" nessas duas colunas para os benchmarks é o
+    correto, não uma lacuna a esconder.
+    """
+    retorno_total = float(np.prod(1.0 + retornos) - 1.0)
+    return MetricasBenchmark(
+        retorno_total=retorno_total,
+        sharpe=calcular_sharpe(retornos),
+        sortino=calcular_sortino(retornos),
+        max_drawdown=calcular_max_drawdown(retornos),
+    )
+
+
 # --------------------------------------------------------------------------
 # 2. Sharpe deflacionado (Bailey & López de Prado, 2014 -- aproximação)
 # --------------------------------------------------------------------------
