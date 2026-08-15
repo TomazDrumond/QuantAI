@@ -168,15 +168,15 @@ def plotar_curva_patrimonio_e_drawdown(
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [2.5, 1]})
     plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
 
-    ax1.plot(datas, patrimonio_carteira, label="Quant AI (Estratégia)", color="#1f77b4", linewidth=2.0)
+    ax1.plot(datas, patrimonio_carteira, label="Minerva IX", color="#1f77b4", linewidth=2.0)
 
     if retornos_ibov is not None and len(retornos_ibov) == len(retornos_carteira):
         patrimonio_ibov = valor_inicial * np.cumprod(1.0 + retornos_ibov)
-        ax1.plot(datas, patrimonio_ibov, label="Ibovespa (Benchmark)", color="#ff7f0e", linestyle="--", linewidth=1.5, alpha=0.85)
+        ax1.plot(datas, patrimonio_ibov, label="Ibovespa ", color="#ff7f0e", linestyle="--", linewidth=1.5, alpha=0.85)
 
     if retornos_cdi is not None and len(retornos_cdi) == len(retornos_carteira):
         patrimonio_cdi = valor_inicial * np.cumprod(1.0 + retornos_cdi)
-        ax1.plot(datas, patrimonio_cdi, label="CDI (Taxa Livre de Risco)", color="#2ca02c", linestyle=":", linewidth=1.5, alpha=0.85)
+        ax1.plot(datas, patrimonio_cdi, label="CDI ", color="#2ca02c", linestyle=":", linewidth=1.5, alpha=0.85)
 
     # CORREÇÃO: título com datas reais da série, não hardcoded
     ano_inicio, ano_fim = datas.min().year, datas.max().year
