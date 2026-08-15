@@ -22,6 +22,25 @@ import numpy as np
 from agente_2_sentiment_agents import pontuar_noticia, ScoreSentimento, processar_resposta_llm
 from cache_sentimento import inicializar_cache, buscar_no_cache, salvar_no_cache
 
+
+def _caminho_cache_padrao() -> str:
+    """
+    Resolve automaticamente para uma pasta persistente do Google Drive,
+    SE ele estiver montado -- evita perder o cache toda vez que a sessão
+    do Colab reinicia (/content é sempre apagado ao reiniciar; um
+    caminho dentro de /content/drive/MyDrive/... não é). Cai de volta
+    para um arquivo local relativo se o Drive não estiver montado (ex:
+    rodando fora do Colab, ou antes de você montar o Drive na sessão).
+
+    Não precisa passar caminho_cache manualmente em cada chamada -- só
+    montar o Drive ANTES de chamar processar_base_noticias já basta.
+    """
+    pasta_drive = "/content/drive/MyDrive/QuantAI"
+    if os.path.isdir("/content/drive/MyDrive"):
+        os.makedirs(pasta_drive, exist_ok=True)
+        return os.path.join(pasta_drive, "cache_sentimento.db")
+    return "cache_sentimento.db"
+
 # Precisa bater com os defaults de modelo em agente_2_sentiment_agents.py
 # (_chamar_anthropic/_chamar_openai/_chamar_gemini) -- é o que a chave do
 # cache usa para nunca reaproveitar score de um modelo diferente.
@@ -82,7 +101,7 @@ def obter_chaves_api() -> dict[str, str]:
 def processar_base_noticias(
     df_noticias: pd.DataFrame,
     usar_fallback_se_sem_chave: bool = True,
-    caminho_cache: str = "cache_sentimento.db",
+    caminho_cache: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Recebe um DataFrame com colunas: ['timestamp_noticia' (ou 'data'), 'ticker', 'noticia_id', 'texto_noticia']
@@ -103,7 +122,8 @@ def processar_base_noticias(
     # no banco, então uma notícia que falhou é sempre re-tentada na API,
     # nunca fica "presa" num zero/falha antiga). Chave inclui provider+
     # modelo, então trocar de modelo nunca reaproveita score de outro.
-    conn_cache = inicializar_cache(caminho_cache)
+    conn_cache = inicializar_cache(caminho_cache if caminho_cache is not None else _caminho_cache_padrao())
+    print(f"[CACHE] Usando: {conn_cache.execute('PRAGMA database_list').fetchone()[2]}")
     contador_cache_hit = 0
     contador_cache_miss = 0
 
