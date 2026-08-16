@@ -627,11 +627,23 @@ def rodar_backtest_walkforward(
         # MESMA fórmula usada na estratégia (calcular_metricas_benchmark
         # reusa calcular_sharpe/sortino/max_drawdown), para a comparação
         # não favorecer nenhum lado com metodologia diferente.
+        #
+        # CORREÇÃO (achado real: Sharpe do CDI saiu 36,3 numa rodada de
+        # relatório): Sharpe = média(excesso) / desvio-padrão(excesso).
+        # O CDI, sendo o próprio ativo livre de risco, tem uma curva de
+        # juros compostos quase perfeitamente lisa -- desvio-padrão diário
+        # próximo de zero. Dividir uma média positiva por um desvio quase
+        # nulo produz um valor matematicamente "correto" mas sem
+        # significado de comparação: Sharpe mede retorno por unidade de
+        # risco ACIMA do ativo livre de risco, e o CDI não tem prêmio de
+        # risco sobre si mesmo, por definição. Reportado como não
+        # aplicável, não como um número que parece (e não é) um resultado
+        # bom.
         print("\n=== MÉTRICAS DE BENCHMARK (para a tabela executiva do relatório) ===")
         m_cdi = calcular_metricas_benchmark(retornos_cdi_diarios)
         print(f" CDI        | Retorno Total: {m_cdi.retorno_total*100:6.2f}% | "
-              f"Sharpe: {m_cdi.sharpe:5.2f} | Sortino: {m_cdi.sortino:5.2f} | "
-              f"MDD: {m_cdi.max_drawdown*100:6.2f}%")
+              f"Sharpe: N/A (ativo livre de risco, sem prêmio sobre si mesmo) | "
+              f"Sortino: N/A | MDD: {m_cdi.max_drawdown*100:6.2f}%")
         if retornos_ibov_real is not None:
             m_ibov = calcular_metricas_benchmark(retornos_ibov_real)
             print(f" Ibovespa   | Retorno Total: {m_ibov.retorno_total*100:6.2f}% | "
@@ -640,7 +652,9 @@ def rodar_backtest_walkforward(
         else:
             print(" Ibovespa   | indisponível nesta rodada (falha ao baixar ^BVSP via yfinance)")
         print(" (Turnover e Sharpe Deflacionado não se aplicam a um índice passivo -- use '-' na tabela)")
+        print(" (Sharpe/Sortino do CDI não se aplicam -- use '-' na tabela, ver comentário no código)")
         print("==============================================================")
+
 
         fig1 = plotar_curva_patrimonio_e_drawdown(
             datas=datas_idx,
